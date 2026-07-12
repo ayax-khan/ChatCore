@@ -1,0 +1,68 @@
+replicaCount: 2
+
+image:
+  repository: chatcore
+  tag: latest
+  pullPolicy: IfNotPresent
+
+backend:
+  port: 8000
+  replicas: 2
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+frontend:
+  port: 3000
+  replicas: 2
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+celery:
+  worker:
+    replicas: 2
+    concurrency: 4
+  beat:
+    enabled: true
+
+postgresql:
+  enabled: true
+  auth:
+    database: chatcore
+    username: postgres
+    password: postgres
+  primary:
+    persistence:
+      size: 20Gi
+
+redis:
+  enabled: true
+  auth:
+    enabled: false
+
+qdrant:
+  enabled: true
+  persistence:
+    size: 10Gi
+
+ingress:
+  enabled: true
+  host: api.chatcore.dev
+  tls: true
+
+monitoring:
+  prometheus:
+    enabled: true
+  grafana:
+    enabled: true
+    dashboards:
+      enabled: true

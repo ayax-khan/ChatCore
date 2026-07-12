@@ -8,6 +8,8 @@ from app.auth.dependencies import get_current_user, require_admin
 from app.models.user import User
 from app.models.business import Business
 from app.models.plan import Plan
+from app.models.invoice import Invoice
+from app.models.subscription import Subscription
 from app.core.config import settings
 
 router = APIRouter(prefix="/billing", tags=["billing"])
@@ -114,3 +116,27 @@ async def add_payment_method(
     db.add(event)
     await db.flush()
     return {"detail": "Payment method added"}
+
+
+@router.get("/invoices")
+async def list_invoices(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Invoice)
+        .where(Invoice.business_id == current_user.business_id)
+        .order_by(Invoice.created_at.desc())
+    )
+    invoices = result.scalars().all()
+    return [
+        {
+            "id": inv.id,
+            "amount": inv.amount,
+            "status": inv.status,
+            "stripe_invoice_id": inv.stripe_invoice_id,
+            "paid_at": inv.paid_at.isoformat() if inv.paid_at else None,
+            "created_at": inv.created_at.isoformat(),
+        }
+        for inv in invoices
+    ]

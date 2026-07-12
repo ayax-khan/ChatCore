@@ -1,0 +1,149 @@
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "ChatCore API",
+    "version": "1.0.0",
+    "description": "AI Customer Support Chatbot Platform API"
+  },
+  "servers": [
+    {"url": "https://api.chatcore.dev/api/v1", "description": "Production"},
+    {"url": "http://localhost:8000/api/v1", "description": "Local Development"}
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register new user",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {"type": "string", "format": "email"},
+                  "password": {"type": "string", "minLength": 8},
+                  "business_name": {"type": "string"}
+                },
+                "required": ["email", "password", "business_name"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {"description": "User created"},
+          "409": {"description": "Email already exists"}
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {"type": "string"},
+                  "password": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Login successful"},
+          "401": {"description": "Invalid credentials"}
+        }
+      }
+    },
+    "/sites/": {
+      "get": {
+        "tags": ["Sites"],
+        "summary": "List all sites",
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {"description": "List of sites"}
+        }
+      },
+      "post": {
+        "tags": ["Sites"],
+        "summary": "Create a new site",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {"type": "string"},
+                  "name": {"type": "string"}
+                },
+                "required": ["url", "name"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {"description": "Site created"}
+        }
+      }
+    },
+    "/chat/": {
+      "post": {
+        "tags": ["Chat"],
+        "summary": "Send chat message",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "question": {"type": "string"},
+                  "site_id": {"type": "integer"},
+                  "session_id": {"type": "string"}
+                },
+                "required": ["question", "site_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Chat response"}
+        }
+      }
+    },
+    "/analytics/usage": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "Get usage metrics",
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {"description": "Usage metrics"}
+        }
+      }
+    },
+    "/billing/invoices": {
+      "get": {
+        "tags": ["Billing"],
+        "summary": "List invoices",
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {"description": "List of invoices"}
+        }
+      }
+    },
+    "/security/audit-logs": {
+      "get": {
+        "tags": ["Security"],
+        "summary": "Get audit logs",
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {"description": "Audit log entries"}
+        }
+      }
+    }
+  }
+}

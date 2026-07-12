@@ -1,0 +1,64 @@
+{
+  "title": "ChatCore Overview",
+  "uid": "chatcore-overview",
+  "panels": [
+    {
+      "title": "API Requests per Second",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(http_requests_total[5m])",
+          "legendFormat": "{{method}} {{endpoint}}"
+        }
+      ]
+    },
+    {
+      "title": "LLM Cost (Daily)",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(llm_cost_total[24h]))",
+          "legendFormat": "Daily Cost"
+        }
+      ]
+    },
+    {
+      "title": "Active Chat Sessions",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(chat_sessions_active)"
+        }
+      ]
+    },
+    {
+      "title": "Error Rate",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{status=~\"5..\"}[5m]) / rate(http_requests_total[5m])",
+          "legendFormat": "Error Rate"
+        }
+      ]
+    },
+    {
+      "title": "Redis Cache Hit Ratio",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(cache_hits_total[5m]) / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))",
+          "legendFormat": "Hit Ratio"
+        }
+      ]
+    },
+    {
+      "title": "Celery Queue Length",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "celery_queue_length"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "chatcore.fullname" . }}-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    {{- if .Values.ingress.tls }}
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    {{- end }}
+spec:
+  {{- if .Values.ingress.tls }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: {{ include "chatcore.fullname" . }}-tls
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "chatcore.fullname" . }}-backend
+                port:
+                  number: {{ .Values.backend.port }}
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "chatcore.fullname" . }}-backend
+                port:
+                  number: {{ .Values.backend.port }}
+    - host: app.chatcore.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "chatcore.fullname" . }}-frontend
+                port:
+                  number: {{ .Values.frontend.port }}

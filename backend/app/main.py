@@ -6,10 +6,20 @@ from fastapi.responses import JSONResponse, Response
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+import sentry_sdk
+
 from app.core.config import settings
 from app.api.v1 import auth, sites, chat, analytics, ws, users, feedback, billing, api_keys, security
 from app.utils.rate_limiter import limiter
 from app.utils.logger import setup_logging
+
+if settings.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        traces_sample_rate=0.1,
+        profiles_sample_rate=0.1,
+        environment="production" if not settings.DEBUG else "development",
+    )
 
 
 @asynccontextmanager
