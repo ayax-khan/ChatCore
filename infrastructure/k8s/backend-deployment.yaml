@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatcore-backend
+  labels:
+    app: chatcore-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: chatcore-backend
+  template:
+    metadata:
+      labels:
+        app: chatcore-backend
+    spec:
+      containers:
+        - name: backend
+          image: chatcore-backend:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chatcore-secrets
+                  key: database_url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chatcore-secrets
+                  key: redis_url
+            - name: QDRANT_URL
+              valueFrom:
+                secretKeyRef:
+                  name: chatcore-secrets
+                  key: qdrant_url
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: chatcore-secrets
+                  key: secret_key
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  selector:
+    app: chatcore-backend
+  ports:
+    - port: 80
+      targetPort: 8000
+  type: ClusterIP

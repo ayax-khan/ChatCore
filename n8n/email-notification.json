@@ -1,0 +1,63 @@
+{
+  "name": "Email Notification Workflow",
+  "nodes": [
+    {
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "send-email",
+        "responseMode": "onReceived"
+      }
+    },
+    {
+      "name": "IF - Check Event Type",
+      "type": "n8n-nodes-base.if",
+      "position": [450, 300],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.event}}",
+              "operation": "equal",
+              "value2": "lead"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Send Lead Email",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [650, 200],
+      "parameters": {
+        "fromEmail": "leads@chatcore.dev",
+        "toEmail": "={{$json.admin_email}}",
+        "subject": "New Lead from ChatCore: {{$json.email}}",
+        "text": "New lead captured!\n\nName: {{$json.name}}\nEmail: {{$json.email}}\nQuestion: {{$json.question}}"
+      }
+    },
+    {
+      "name": "Send Error Alert",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [650, 400],
+      "parameters": {
+        "fromEmail": "alerts@chatcore.dev",
+        "toEmail": "={{$json.admin_email}}",
+        "subject": "ChatCore Alert: {{$json.error_type}}",
+        "text": "Error:\n\nType: {{$json.error_type}}\nMessage: {{$json.message}}\nTime: {{$json.timestamp}}"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{"node": "IF - Check Event Type", "type": "main"}]]
+    },
+    "IF - Check Event Type": {
+      "main": [
+        [{"node": "Send Lead Email", "type": "main"}],
+        [{"node": "Send Error Alert", "type": "main"}]
+      ]
+    }
+  }
+}

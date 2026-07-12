@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatcore-frontend
+  labels:
+    app: chatcore-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: chatcore-frontend
+  template:
+    metadata:
+      labels:
+        app: chatcore-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: chatcore-frontend:latest
+          ports:
+            - containerPort: 3000
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+spec:
+  selector:
+    app: chatcore-frontend
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: ClusterIP

@@ -1,0 +1,80 @@
+{
+  "name": "Error Handling & Alerting",
+  "nodes": [
+    {
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "error-alert",
+        "responseMode": "onReceived"
+      }
+    },
+    {
+      "name": "Slack Notification",
+      "type": "n8n-nodes-base.slack",
+      "position": [450, 300],
+      "parameters": {
+        "channel": "#chatcore-alerts",
+        "text": "🚨 ChatCore Error Alert\n\nSite: {{$json.site_url}}\nError: {{$json.error_message}}\nTime: {{$json.timestamp}}\nStatus Code: {{$json.status_code}}"
+      }
+    },
+    {
+      "name": "Create Ticket",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 450],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.github.com/repos/chatcore/issues",
+        "authentication": "genericCredential",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {"name": "title", "value": "Error: {{$json.error_message}}"},
+            {"name": "body", "value": "## Error Report\n\n**Site:** {{$json.site_url}}\n**Error:** {{$json.error_message}}\n**Time:** {{$json.timestamp}}\n**Stack:** {{$json.stack_trace}}"}
+          ]
+        }
+      }
+    },
+    {
+      "name": "IF - Critical Error",
+      "type": "n8n-nodes-base.if",
+      "position": [450, 150],
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.severity}}",
+              "operation": "largerEqual",
+              "value2": 8
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Send SMS Alert",
+      "type": "n8n-nodes-base.twilio",
+      "position": [650, 150],
+      "parameters": {
+        "to": "={{$json.phone}}",
+        "from": "+1234567890",
+        "message": "CRITICAL: ChatCore error on {{$json.site_url}}: {{$json.error_message}}"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{"node": "IF - Critical Error", "type": "main"}]]
+    },
+    "IF - Critical Error": {
+      "main": [
+        [{"node": "Send SMS Alert", "type": "main"}],
+        [{"node": "Slack Notification", "type": "main"}]
+      ]
+    },
+    "Slack Notification": {
+      "main": [[{"node": "Create Ticket", "type": "main"}]]
+    }
+  }
+}

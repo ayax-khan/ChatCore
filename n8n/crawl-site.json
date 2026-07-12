@@ -1,0 +1,43 @@
+{
+  "name": "Crawl Website",
+  "nodes": [
+    {
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [250, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "hours", "minutesInterval": 24}]
+        }
+      }
+    },
+    {
+      "name": "HTTP Request - Crawler",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend-service:8000/api/v1/sites/{site_id}/crawl",
+        "authentication": "genericCredential",
+        "sendBody": true
+      }
+    },
+    {
+      "name": "Slack Notification",
+      "type": "n8n-nodes-base.slack",
+      "position": [650, 300],
+      "parameters": {
+        "channel": "#chatcore-alerts",
+        "text": "Crawl completed for site {{$node[\"HTTP Request\"].json.site_id}}"
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [[{"node": "HTTP Request - Crawler", "type": "main"}]]
+    },
+    "HTTP Request - Crawler": {
+      "main": [[{"node": "Slack Notification", "type": "main"}]]
+    }
+  }
+}
