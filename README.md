@@ -169,3 +169,8 @@ npm test
 ## License
 
 [MIT](LICENSE)
+
+---
+
+<p align="center">Powered by <strong>Ayax-Khan</strong> — Co-Founder of <a href="https://devssdo.com">Devssdo.com</a></p>
+
