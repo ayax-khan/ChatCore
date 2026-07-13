@@ -14,7 +14,7 @@ from app.models.plan import Plan
 from app.models.website import Website
 
 
-TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+TEST_DATABASE_URL = "sqlite+aiosqlite://"
 
 
 @pytest.fixture(scope="session")

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.db.session import get_db
 from app.auth.dependencies import get_current_user
@@ -15,8 +15,15 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 class ChatRequest(BaseModel):
     site_id: int
-    session_id: str
+    session_id: str = ""
     question: str
+
+    @field_validator("question")
+    @classmethod
+    def question_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("question must not be empty")
+        return v
 
 
 class ChatResponse(BaseModel):
@@ -35,6 +42,10 @@ async def chat(
     from app.models.chat_session import ChatSession
     from app.models.message import Message
     from sqlalchemy import select
+    import uuid
+
+    if not req.session_id:
+        req.session_id = str(uuid.uuid4())
 
     rag = RAGService()
     answer, sources, confidence = await rag.answer_question(
@@ -60,4 +71,4 @@ async def chat(
     db.add(bot_msg)
     await db.flush()
 
-    return {"answer": answer, "sources": sources, "confidence": confidence}
+    return {"answer": answer, "sources": sources, "confidence": confidence, "session_id": req.session_id}

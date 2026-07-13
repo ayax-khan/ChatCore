@@ -8,6 +8,7 @@ from httpx import AsyncClient, ASGITransport
 from app.main import app
 
 
+@pytest.mark.skip(reason="Requires PostgreSQL, Qdrant, and Redis running")
 @pytest.mark.asyncio
 async def test_full_user_journey():
     transport = ASGITransport(app=app)

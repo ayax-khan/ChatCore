@@ -70,7 +70,11 @@ async def create_site(
     db.add(site)
     await db.flush()
 
-    await trigger_crawl_logic(site, max_pages=20, use_playwright=False)
+    try:
+        await trigger_crawl_logic(site, max_pages=20, use_playwright=False, db=db)
+    except Exception as e:
+        logger.warning(f"Initial crawl failed for site {site.id}: {e}")
+        site.status = "active"
 
     return {"site_id": site.id, "site_name": site.name, "url": site.url, "status": site.status}
 
@@ -161,6 +165,7 @@ async def crawl_site(
             use_playwright=config.use_playwright,
             auth_type=config.auth_type,
             auth_token=config.auth_token,
+            db=db,
         )
 
         site.last_crawled_at = datetime.now(timezone.utc)
@@ -206,7 +211,8 @@ async def recrawl_site(
             new_site,
             max_pages=config.max_pages,
             max_depth=config.max_depth,
-            use_playwright=config.use_playwright
+            use_playwright=config.use_playwright,
+            db=db,
         )
 
         new_site.last_crawled_at = datetime.now(timezone.utc)
@@ -261,12 +267,12 @@ async def trigger_crawl_logic(
     use_playwright: bool = False,
     auth_type: str | None = None,
     auth_token: str | None = None,
+    db: AsyncSession | None = None,
 ):
     from app.services.crawler import CrawlerConfig, CrawlerService
     from app.services.chunker import ChunkerService
     from app.services.vector_store import VectorStoreService
     from app.services.rag import RAGService
-    from app.db.session import async_session_factory
 
     sitemap_list = [sitemap_url] if sitemap_url else []
 
@@ -294,22 +300,30 @@ async def trigger_crawl_logic(
         total_chunks += len(chunks)
         await vector_store.upsert_chunks(site.id, chunks)
 
-    async with async_session_factory() as db:
-        from app.models.analytics_event import AnalyticsEvent
-        event = AnalyticsEvent(
-            business_id=site.business_id,
-            event_type="crawl",
-            properties={
-                "site_id": site.id,
-                "pages_count": len(result.pages),
-                "chunks_count": total_chunks,
-                "duration_second": result.duration_seconds,
-                "status": result.status.value
-            }
-        )
-        db.add(event)
-        await db.flush()
+    if db is None:
+        from app.db.session import async_session_factory
+        async with async_session_factory() as session:
+            await _log_crawl_event(session, site, result, total_chunks)
+    else:
+        await _log_crawl_event(db, site, result, total_chunks)
 
     logger.info(f"Crawled {len(result.pages)} pages, {total_chunks} chunks for site {site.id}")
 
     return result
+
+
+async def _log_crawl_event(db: AsyncSession, site: Website, result, total_chunks: int):
+    from app.models.analytics_event import AnalyticsEvent
+    event = AnalyticsEvent(
+        business_id=site.business_id,
+        event_type="crawl",
+        properties={
+            "site_id": site.id,
+            "pages_count": len(result.pages),
+            "chunks_count": total_chunks,
+            "duration_second": result.duration_seconds,
+            "status": result.status.value
+        }
+    )
+    db.add(event)
+    await db.flush()

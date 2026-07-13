@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, extract
+from sqlalchemy import select, func, and_, extract, Integer
 from datetime import datetime, timedelta, timezone
 
 from app.db.session import get_db
@@ -33,50 +33,59 @@ async def get_usage(
 
     biz_id = current_user.business_id
 
-    total_sessions = await db.execute(
-        select(func.count(ChatSession.id)).where(
-            ChatSession.business_id == biz_id,
-            ChatSession.started_at >= since,
+    total_sessions = (
+        await db.scalar(
+            select(func.count(ChatSession.id)).where(
+                ChatSession.business_id == biz_id,
+                ChatSession.started_at >= since,
+            )
         )
-    )
+    ) or 0
 
-    total_messages = await db.execute(
-        select(func.count(Message.id))
-        .join(ChatSession)
-        .where(
-            ChatSession.business_id == biz_id,
-            Message.timestamp >= since,
+    total_messages = (
+        await db.scalar(
+            select(func.count(Message.id))
+            .join(ChatSession)
+            .where(
+                ChatSession.business_id == biz_id,
+                Message.timestamp >= since,
+            )
         )
-    )
+    ) or 0
 
-    dau_result = await db.execute(
-        select(func.count(func.distinct(
-            func.date_trunc("day", ChatSession.started_at)
-        ))).where(
-            ChatSession.business_id == biz_id,
-            ChatSession.started_at >= since,
+    active_days = (
+        await db.scalar(
+            select(func.count(func.distinct(
+                func.date(ChatSession.started_at)
+            ))).where(
+                ChatSession.business_id == biz_id,
+                ChatSession.started_at >= since,
+            )
         )
-    )
+    ) or 1
 
-    active_days = dau_result.scalar() or 1
-    total_sites = await db.execute(
-        select(func.count(Website.id)).where(
-            Website.business_id == biz_id
+    total_sites = (
+        await db.scalar(
+            select(func.count(Website.id)).where(
+                Website.business_id == biz_id
+            )
         )
-    )
+    ) or 0
 
-    total_chunks = await db.execute(
-        select(func.count(DocumentChunk.id))
-        .join(Website)
-        .where(Website.business_id == biz_id)
-    )
+    total_chunks = (
+        await db.scalar(
+            select(func.count(DocumentChunk.id))
+            .join(Website)
+            .where(Website.business_id == biz_id)
+        )
+    ) or 0
 
     feedback_result = await db.execute(
         select(
             func.count(AnalyticsEvent.id),
             func.avg(
                 func.cast(
-                    AnalyticsEvent.properties["rating"].as_text(), "integer"
+                    AnalyticsEvent.properties["rating"], Integer
                 )
             ),
         ).where(
@@ -87,25 +96,26 @@ async def get_usage(
     )
     feedback_count, avg_rating = feedback_result.first() or (0, None)
 
-    leads_result = await db.execute(
-        select(func.count(AnalyticsEvent.id)).where(
-            AnalyticsEvent.business_id == biz_id,
-            AnalyticsEvent.event_type == "lead_captured",
-            AnalyticsEvent.created_at >= since,
+    leads_count = (
+        await db.scalar(
+            select(func.count(AnalyticsEvent.id)).where(
+                AnalyticsEvent.business_id == biz_id,
+                AnalyticsEvent.event_type == "lead_captured",
+                AnalyticsEvent.created_at >= since,
+            )
         )
-    )
-    leads_count = leads_result.scalar() or 0
+    ) or 0
 
     from app.services.cache_service import CacheService
     cache = CacheService()
     usage_data = await cache.get_usage_stats(biz_id)
 
     return {
-        "total_sessions": total_sessions.scalar() or 0,
-        "total_messages": total_messages.scalar() or 0,
-        "daily_active_users": round((total_sessions.scalar() or 0) / max(active_days, 1)),
-        "total_sites": total_sites.scalar() or 0,
-        "total_chunks": total_chunks.scalar() or 0,
+        "total_sessions": total_sessions,
+        "total_messages": total_messages,
+        "daily_active_users": round(total_sessions / active_days),
+        "total_sites": total_sites,
+        "total_chunks": total_chunks,
         "avg_rating": round(float(avg_rating), 2) if avg_rating else None,
         "total_feedback": feedback_count or 0,
         "total_leads": leads_count,
@@ -208,18 +218,18 @@ async def get_daily_metrics(
 
     daily_data = await db.execute(
         select(
-            func.date_trunc("day", ChatSession.started_at).label("day"),
+            func.date(ChatSession.started_at).label("day"),
             func.count(ChatSession.id).label("sessions"),
         )
         .where(
             ChatSession.business_id == biz_id,
             ChatSession.started_at >= since,
         )
-        .group_by(func.date_trunc("day", ChatSession.started_at))
-        .order_by(func.date_trunc("day", ChatSession.started_at))
+        .group_by(func.date(ChatSession.started_at))
+        .order_by(func.date(ChatSession.started_at))
     )
 
     return [
-        {"date": str(row.day.date()), "sessions": row.sessions}
+        {"date": str(row.day), "sessions": row.sessions}
         for row in daily_data.all()
     ]

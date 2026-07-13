@@ -36,7 +36,7 @@ class SparseSearchService:
             if metadata_filters:
                 for key, value in metadata_filters.items():
                     stmt = stmt.where(
-                        DocumentChunk.metadata[key].as_string() == str(value)
+                        DocumentChunk.meta_data[key].as_string() == str(value)
                     )
 
             keyword_conditions = []
@@ -55,7 +55,7 @@ class SparseSearchService:
             if score >= self.min_score:
                 scored.append({
                     "content": chunk.content,
-                    "metadata": chunk.metadata or {},
+                    "metadata": chunk.meta_data or {},
                     "score": score,
                 })
 

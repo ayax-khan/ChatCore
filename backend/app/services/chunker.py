@@ -17,6 +17,8 @@ class ChunkerService:
         self.strategy = strategy
 
     def chunk_text(self, text: str, metadata: dict | None = None) -> list[dict]:
+        if not text or not text.strip():
+            return []
         if self.strategy == "token":
             return self._token_chunk(text, metadata)
         elif self.strategy == "sentence":
@@ -49,13 +51,18 @@ class ChunkerService:
 
     def _sentence_chunk(self, text: str, metadata: dict | None = None) -> list[dict]:
         import nltk
+        import os
+        nltk_data_path = os.environ.get("NLTK_DATA") or os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "nltk_data")
+        if os.path.isdir(nltk_data_path):
+            nltk.data.path.insert(0, nltk_data_path)
         try:
             sent_tokenizer = nltk.sent_tokenize
         except LookupError:
-            nltk.download("punkt_tab")
+            try:
+                nltk.download("punkt_tab")
+            except Exception:
+                pass
             sent_tokenizer = nltk.sent_tokenize
-        except ImportError:
-            return self._token_chunk(text, metadata)
 
         sentences = sent_tokenizer(text)
         if not sentences:
@@ -113,6 +120,9 @@ class ChunkerService:
         last_pos = 0
 
         for match in heading_pattern.finditer(text):
+            content_before = text[last_pos:match.start()].strip()
+            if content_before:
+                current_content.append(content_before)
             if current_content:
                 sections.append({
                     "heading": current_heading,

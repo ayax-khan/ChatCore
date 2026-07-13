@@ -11,7 +11,7 @@ async def test_analytics_usage(client, auth_headers):
     data = resp.json()
     assert "total_sessions" in data
     assert "total_messages" in data
-    assert "dau" in data
+    assert "daily_active_users" in data
 
 
 @pytest.mark.asyncio
@@ -32,7 +32,9 @@ async def test_analytics_top_questions(client, auth_headers):
 async def test_analytics_cost_breakdown(client, auth_headers):
     resp = await client.get("/api/v1/analytics/cost-breakdown", headers=auth_headers)
     assert resp.status_code == 200
-    assert isinstance(resp.json(), list)
+    data = resp.json()
+    assert isinstance(data, dict)
+    assert "total_cost" in data
 
 
 @pytest.mark.asyncio

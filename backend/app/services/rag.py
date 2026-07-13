@@ -51,13 +51,17 @@ class RAGService:
         results = await vs.search(site_id, query_embedding, top_k=k)
 
         if not results:
-            from app.services.sparse_search import SparseSearchService
-            sparse = SparseSearchService()
-            sparse_results = await sparse.search(site_id, query, top_k=k)
-            if sparse_results:
-                for sr in sparse_results:
-                    sr["score"] = sr.get("score", 0.5) * 0.8
-                return sparse_results
+            try:
+                from app.services.sparse_search import SparseSearchService
+                sparse = SparseSearchService()
+                sparse_results = await sparse.search(site_id, query, top_k=k)
+                if sparse_results:
+                    for sr in sparse_results:
+                        sr["score"] = sr.get("score", 0.5) * 0.8
+                    return sparse_results
+            except Exception as e:
+                logger = logging.getLogger(__name__)
+                logger.error(f"Sparse search failed: {e}")
 
         return results
 

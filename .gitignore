@@ -11,3 +11,6 @@ venv/
 *.db
 *.log
 .DS_Store
+nltk_data/
+.pytest_cache/
+.pytest_cache/

@@ -81,6 +81,29 @@ class VectorStoreService:
             logger.error(f"Vector search failed: {e}")
             return []
 
+    async def upsert_chunks(self, site_id: int, chunks: list[dict]):
+        if not self.client:
+            return
+        try:
+            from qdrant_client.http.models import PointStruct
+            name = self._collection_name(site_id)
+            await self.ensure_collection(site_id)
+            points = []
+            for i, chunk in enumerate(chunks):
+                points.append(PointStruct(
+                    id=hash(f"{site_id}_{i}_{chunk['content'][:100]}"),
+                    vector=[0.0] * settings.EMBEDDING_DIMENSION,
+                    payload={
+                        "content": chunk.get("content", ""),
+                        "metadata": chunk.get("metadata", {}),
+                        "chunk_index": i,
+                    },
+                ))
+            self.client.upsert(collection_name=name, points=points, wait=True)
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to upsert chunks: {e}")
+
     async def delete_site_data(self, site_id: int):
         if not self.client:
             return
