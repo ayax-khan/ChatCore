@@ -33,3 +33,6 @@ stop.bat
 
 # Logs
 *.log
+
+# NLTK data
+nltk_data/
