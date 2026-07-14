@@ -1,30 +1,18 @@
 # ChatCore — AI Customer Support Chatbot Platform
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.12-blue)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)](https://fastapi.tiangolo.com)
-[![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED)](https://docker.com)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-EKS-326CE5)](https://aws.amazon.com/eks)
-
-**ChatCore** is a multi-tenant SaaS platform that lets businesses embed an AI-powered customer support chatbot on their websites. It crawls website content, indexes it using RAG (Retrieval-Augmented Generation), and answers visitor questions in real time.
+ChatCore is a multi-tenant SaaS platform that crawls websites, indexes content via RAG, and provides an AI chatbot that answers visitor questions using only your website's data.
 
 ---
 
 ## Features
 
-- **AI Chatbot** — Real-time streaming responses via WebSocket with source citations
-- **Website Crawler** — Auto-crawl with sitemap, robots.txt, Playwright for JS sites, incremental updates
-- **Multi-Model LLM** — Automatic fallback chain: GPT-4o → GPT-4o-mini → GPT-3.5 → Gemini → Claude → OpenRouter
-- **RAG Pipeline** — Hybrid search (dense + sparse) with re-ranking
-- **Document Upload** — PDF, DOCX, CSV, Excel parsing
-- **Multi-Tenant** — Team management with RBAC (admin, editor, viewer)
-- **Analytics** — DAU, top questions, cost breakdown, daily metrics
-- **Billing** — Stripe integration with plan-based feature enforcement
-- **Security** — JWT with refresh rotation, OAuth (Google/GitHub), rate limiting, GDPR compliance, audit logs
-- **Chat Widget** — Floating button, real-time streaming, typing indicator, feedback, lead capture
-- **Background Jobs** — Celery for crawling, embedding, email, daily summaries
-- **Monitoring** — Prometheus metrics, Sentry error tracking, JSON logging
+- **AI Chatbot** — Real-time streaming via WebSocket with source citations. Chat page in dashboard + embeddable widget for external sites.
+- **Website Crawler** — Auto-crawl sitemaps/robots.txt/links. Extracts & chunks content for indexing. Fixes: crawler no longer crashes on malformed HTML, task list bug resolved.
+- **Multi-Model LLM** — Fallback chain: GPT-4o → Gemini → Claude → OpenRouter (no single API key required).
+- **RAG Pipeline** — Hybrid search (dense vector in Qdrant + sparse keyword search in SQL). Chunks saved to SQL so keyword search works even without embedding API keys.
+- **Multi-Tenant** — Team management with RBAC (admin, viewer, owner).
+- **Analytics** — Sessions, messages, active users, top questions, cost breakdown.
+- **Chat Widget** — Floating chat bubble with streaming, markdown rendering, typing indicator, feedback buttons, suggested questions.
 
 ## Tech Stack
 
@@ -36,139 +24,101 @@
 | **Vector DB** | Qdrant |
 | **Cache / Queue** | Redis 7 |
 | **AI Models** | OpenAI GPT-4o, Gemini 2.0 Flash, Claude 3 Sonnet, OpenRouter |
-| **Background Jobs** | Celery + Redis |
-| **Infrastructure** | Docker Compose, Kubernetes (EKS), Terraform, Helm |
-| **CI/CD** | GitHub Actions (test + deploy to EKS) |
-| **Monitoring** | Prometheus, Grafana, Loki, Sentry |
-| **Automation** | n8n workflows |
-
-## Architecture
-
-```
-┌─────────────┐     ┌──────────────┐     ┌─────────────┐
-│  Frontend   │────▶│   Backend    │────▶│  PostgreSQL  │
-│  (Next.js)  │     │  (FastAPI)   │     │              │
-└─────────────┘     └──────┬───────┘     └─────────────┘
-                           │                    ▲
-                           ▼                    │
-                    ┌──────────────┐     ┌─────────────┐
-                    │    Redis     │     │   Qdrant    │
-                    │ (Cache/Queue)│     │  (Vector DB) │
-                    └──────────────┘     └─────────────┘
-                           │
-                    ┌──────┴───────┐
-                    │   Celery     │
-                    │  (Workers)   │
-                    └──────────────┘
-```
+| **Infrastructure** | Docker Compose |
 
 ## Quick Start
 
 ```bash
 # Start all services
-docker-compose up -d
+docker compose up -d
 
 # Run database migrations
-cd backend
-alembic upgrade head
+docker compose exec backend sh -c "cd /app && PYTHONPATH=/app alembic upgrade head"
 
-# Seed plans
-psql -h localhost -U postgres -d chatcore -f ../database/seeds/seed_plans.sql
+# Access
+# Frontend: http://localhost:3000
+# Backend API: http://localhost:8000
+# API Docs: http://localhost:8000/api/docs
 ```
 
 ## Project Structure
 
 ```
 ChatCore/
-├── backend/                  # FastAPI backend
+├── backend/
 │   ├── app/
-│   │   ├── api/v1/          # API endpoints (auth, sites, chat, analytics, etc.)
-│   │   ├── models/          # SQLAlchemy models (16 tables)
-│   │   ├── services/        # Business logic (RAG, crawler, LLM, chunker, etc.)
-│   │   ├── core/            # Config, security
-│   │   ├── auth/            # JWT dependencies
-│   │   ├── utils/           # Logger, rate limiter, sanitizer
-│   │   └── tests/           # Unit, integration, E2E, load tests
-│   └── alembic/             # Database migrations
-├── frontend/                # Next.js 14 frontend
-│   ├── app/                 # App Router pages (dashboard, auth, etc.)
-│   ├── components/          # ChatWidget, UI components
-│   ├── lib/                 # API client
-│   ├── context/             # Auth context
-│   └── hooks/               # Custom hooks
-├── infrastructure/          # K8s manifests, Terraform, Helm, nginx, monitoring
-├── n8n/                     # n8n workflow templates
-├── database/                # SQL migrations, seed data
-├── scripts/                 # Utility scripts
-├── docs/                    # API reference, user manual, Postman collection
-└── .github/                 # CI/CD workflows
+│   │   ├── api/v1/          # auth, sites, chat, ws, analytics, users, feedback, billing, api_keys, security
+│   │   ├── models/          # 16 SQLAlchemy models
+│   │   ├── services/        # RAG, crawler, LLM, chunker, vector_store, chat_service, stream_manager, crawl_progress
+│   │   ├── core/            # Config, security (JWT)
+│   │   ├── auth/            # JWT dependencies, OAuth
+│   │   └── utils/           # Logger, rate limiter
+│   └── alembic/versions/    # 004 migrations
+├── frontend/
+│   ├── app/
+│   │   ├── auth/            # login, register
+│   │   └── dashboard/       # sites, chat, analytics, billing, settings, users, chat-sessions, knowledge, logs
+│   └── components/chat/     # ChatWidget (embeddable floating widget)
+├── docker-compose.yml
+└── infrastructure/          # nginx config
+```
 
 ## API Endpoints
 
-| Group | Endpoints |
-|-------|-----------|
-| **Auth** | `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh` |
-| **Sites** | CRUD, crawl, re-crawl, history |
-| **Chat** | `POST /chat/`, `WS /ws/chat` (streaming with sources) |
-| **Users** | List, invite, update role, remove |
-| **Analytics** | Usage, errors, top questions, cost breakdown, daily |
-| **Feedback** | Rating, lead capture, suggested questions |
-| **API Keys** | Create, list, delete |
-| **Billing** | Subscription, plans, upgrade, invoices |
-| **Security** | OAuth, change password, GDPR export/delete, audit logs |
+| Group | Key Endpoints |
+|-------|---------------|
+| **Auth** | `POST /api/v1/auth/register`, `POST /api/v1/auth/login` |
+| **Sites** | `GET/POST /api/v1/sites`, `DELETE /api/v1/sites/{id}`, `GET /api/v1/sites/{id}/progress` |
+| **Chat** | `POST /api/v1/chat/`, `WS /api/ws/chat` (streaming) |
+| **Analytics** | `GET /api/v1/analytics/usage` |
+| **Feedback** | `POST /api/v1/feedback/`, `GET /api/v1/feedback/suggested-questions` |
 
-## Database Schema
+## Environment Variables
 
-16 tables: `businesses`, `users`, `plans`, `websites`, `website_pages`, `document_chunks`, `chat_sessions`, `messages`, `feedback`, `leads`, `api_keys`, `audit_logs`, `sources`, `subscriptions`, `invoices`, `analytics_events`
+Key env vars in `docker-compose.yml`:
 
-## API Documentation
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `OPENAI_API_KEY` | (optional) | GPT embedding + chat |
+| `GEMINI_API_KEY` | (optional) | Gemini fallback |
+| `ANTHROPIC_API_KEY` | (optional) | Claude fallback |
+| `OPENROUTER_API_KEY` | (optional) | OpenRouter fallback |
 
-- **Swagger UI**: `https://api.chatcore.dev/api/docs`
-- **ReDoc**: `https://api.chatcore.dev/api/redoc`
-- **OpenAPI Spec**: `docs/openapi.json`
-- **Postman Collection**: `docs/postman_collection.json`
-- **API Reference**: `docs/api_reference.md`
-- **User Manual**: `docs/user_manual.md`
+All services work with zero API keys — embedding returns zero vectors, LLM falls through to available providers.
+
+## Bug Fixes Applied
+
+| Issue | Fix |
+|-------|-----|
+| Crawler crashes on `tag.get("class")` when `tag.attrs` is None | Added try/except around class/id checks |
+| Crawler `asyncio.wait()` reassigns `tasks` to `set`, breaking `tasks.append()` | Renamed pending set to `pending` |
+| Qdrant point ID negative (signed hash) | `abs(hash(...)) % 2^63` |
+| Chunks not saved to SQL (sparse search had no data) | Save `DocumentChunk` rows during crawl |
+| `remark-gfm` npm package missing | Removed import from chat page |
+| WebSocket route `/ws/chat` didn't match frontend `/api/ws/chat` | Added `prefix="/api"` to ws router |
+| Column name mismatch: DB `metadata` vs model `meta_data` | Migration 003 renames column |
+| `chunk_id NOT NULL` on sources table (sparse search has no chunk_id) | Migration 004 makes it nullable |
+| Token expiry causes silent 500 on all API calls | Added error handling in frontend |
+| Chat sessions page showed fake data | Rewrote with real analytics |
+
+## Chat Interface
+
+Two UIs available:
+
+1. **Dashboard Chat** (`/dashboard/chat`) — Full-page chat with site selector sidebar, WebSocket streaming, source citations
+2. **Embeddable Widget** (`frontend/components/chat/ChatWidget.tsx`) — Floating bubble widget for external websites (requires widget build step for production)
 
 ## Deployment
 
 ### Docker Compose (Local)
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-### Kubernetes (EKS)
+After first start:
 ```bash
-kubectl apply -f infrastructure/k8s/
+docker compose exec backend sh -c "cd /app && PYTHONPATH=/app alembic upgrade head"
 ```
-
-### Helm
-```bash
-helm install chatcore ./infrastructure/helm/chatcore
-```
-
-### Terraform
-```bash
-cd infrastructure/terraform
-terraform init
-terraform apply
-```
-
-## Testing
-
-```bash
-# Backend tests
-cd backend
-pytest app/tests/ -v
-
-# Frontend tests
-cd frontend
-npm test
-```
-
-## License
-
-[MIT](LICENSE)
 
 ---
 

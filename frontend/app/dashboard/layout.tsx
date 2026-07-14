@@ -33,8 +33,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <a href="/dashboard/sites" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 text-sm font-medium transition-colors">
             <span>Websites</span>
           </a>
+          <a href="/dashboard/chat" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 text-sm font-medium transition-colors">
+            <span>Chat</span>
+          </a>
           <a href="/dashboard/chat-sessions" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 text-sm font-medium transition-colors">
-            <span>Chat Sessions</span>
+            <span>History</span>
           </a>
           <a href="/dashboard/analytics" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 text-sm font-medium transition-colors">
             <span>Analytics</span>

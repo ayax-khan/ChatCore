@@ -37,7 +37,7 @@ class CrawlConfig(BaseModel):
     auth_token: str | None = None
 
 
-@router.get("/")
+@router.get("")
 async def list_sites(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -48,7 +48,7 @@ async def list_sites(
     return result.scalars().all()
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 async def create_site(
     req: SiteCreate,
     current_user: User = Depends(get_current_user),
@@ -65,18 +65,49 @@ async def create_site(
         url=req.url,
         name=req.name,
         crawl_interval_hours=req.crawl_interval_hours,
-        status="pending",
+        status="running",
     )
     db.add(site)
     await db.flush()
+    await db.commit()
 
-    try:
-        await trigger_crawl_logic(site, max_pages=20, use_playwright=False, db=db)
-    except Exception as e:
-        logger.warning(f"Initial crawl failed for site {site.id}: {e}")
-        site.status = "active"
+    site_id = site.id
+    site_url = site.url
 
-    return {"site_id": site.id, "site_name": site.name, "url": site.url, "status": site.status}
+    async def run_crawl():
+        from app.db.session import async_session_factory
+        try:
+            async with async_session_factory() as session:
+                result = await session.execute(
+                    select(Website).where(Website.id == site_id)
+                )
+                s = result.scalar_one_or_none()
+                if s:
+                    await trigger_crawl_logic(s, max_pages=20, use_playwright=False)
+                    s.status = "active"
+                    await session.flush()
+                    await session.commit()
+        except Exception as e:
+            logger.error(f"Crawl failed for site {site_id}: {e}", exc_info=True)
+            from app.services.crawl_progress import clear_progress
+            clear_progress(site_id)
+            try:
+                async with async_session_factory() as session:
+                    result = await session.execute(
+                        select(Website).where(Website.id == site_id)
+                    )
+                    s = result.scalar_one_or_none()
+                    if s:
+                        s.status = "failed"
+                        await session.flush()
+                        await session.commit()
+            except Exception:
+                pass
+
+    import asyncio
+    asyncio.create_task(run_crawl())
+
+    return {"site_id": site.id, "site_name": site.name, "url": site.url, "status": "running"}
 
 
 @router.get("/{site_id}")
@@ -120,7 +151,7 @@ async def update_site(
 @router.delete("/{site_id}")
 async def delete_site(
     site_id: int,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -223,6 +254,12 @@ async def recrawl_site(
         raise HTTPException(status_code=500, detail=f"Re-crawl failed: {str(e)}")
 
 
+@router.get("/{site_id}/progress")
+async def get_crawl_progress(site_id: int):
+    from app.services.crawl_progress import get_progress
+    return {"site_id": site_id, "progress": get_progress(site_id)}
+
+
 @router.get("/{site_id}/history")
 async def get_site_history(
     site_id: int,
@@ -272,7 +309,7 @@ async def trigger_crawl_logic(
     from app.services.crawler import CrawlerConfig, CrawlerService
     from app.services.chunker import ChunkerService
     from app.services.vector_store import VectorStoreService
-    from app.services.rag import RAGService
+    from app.services.crawl_progress import set_progress, clear_progress
 
     sitemap_list = [sitemap_url] if sitemap_url else []
 
@@ -287,26 +324,44 @@ async def trigger_crawl_logic(
         sitemap_urls=sitemap_list,
     )
 
+    set_progress(site.id, 5)
     crawler = CrawlerService(config)
     result = await crawler.crawl()
+    set_progress(site.id, 60)
 
     chunker = ChunkerService(chunk_size=500, chunk_overlap=75)
+    from app.models.document_chunk import DocumentChunk
     vector_store = VectorStoreService()
-    rag = RAGService()
 
     total_chunks = 0
-    for page in result.pages:
+    all_chunks_for_sql: list[dict] = []
+    pages = result.pages
+    for idx, page in enumerate(pages):
         chunks = chunker.chunk_text(page["content"], page.get("metadata", {}))
         total_chunks += len(chunks)
         await vector_store.upsert_chunks(site.id, chunks)
+        for ch in chunks:
+            all_chunks_for_sql.append({
+                "site_id": site.id,
+                "content": ch["content"],
+                "meta_data": ch.get("metadata", {}),
+                "chunk_order": ch.get("chunk_order", 0),
+            })
+        pct = 60 + int((idx + 1) / len(pages) * 35)
+        set_progress(site.id, pct)
 
     if db is None:
         from app.db.session import async_session_factory
         async with async_session_factory() as session:
-            await _log_crawl_event(session, site, result, total_chunks)
+            async with session.begin():
+                session.add_all([DocumentChunk(**c) for c in all_chunks_for_sql])
+                await _log_crawl_event(session, site, result, total_chunks)
     else:
+        db.add_all([DocumentChunk(**c) for c in all_chunks_for_sql])
+        await db.flush()
         await _log_crawl_event(db, site, result, total_chunks)
 
+    set_progress(site.id, 100)
     logger.info(f"Crawled {len(result.pages)} pages, {total_chunks} chunks for site {site.id}")
 
     return result

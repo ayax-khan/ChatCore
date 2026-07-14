@@ -10,7 +10,7 @@ export default function KnowledgeBasePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get("/api/v1/sites/")
+    api.get("/api/v1/sites")
       .then((res) => setSites(res.data || []))
       .catch(() => setSites([]))
       .finally(() => setLoading(false));

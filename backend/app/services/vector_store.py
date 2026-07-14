@@ -91,7 +91,7 @@ class VectorStoreService:
             points = []
             for i, chunk in enumerate(chunks):
                 points.append(PointStruct(
-                    id=hash(f"{site_id}_{i}_{chunk['content'][:100]}"),
+                    id=abs(hash(f"{site_id}_{i}_{chunk['content'][:100]}")) % (2**63),
                     vector=[0.0] * settings.EMBEDDING_DIMENSION,
                     payload={
                         "content": chunk.get("content", ""),

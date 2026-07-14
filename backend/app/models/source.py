@@ -7,7 +7,7 @@ class Source(Base):
     __tablename__ = "sources"
 
     id = Column(Integer, primary_key=True, index=True)
-    chunk_id = Column(Integer, ForeignKey("document_chunks.id"), nullable=False)
+    chunk_id = Column(Integer, ForeignKey("document_chunks.id"), nullable=True)
     message_id = Column(Integer, ForeignKey("messages.id"), nullable=False)
     snippet = Column(Text, nullable=False)
     offset = Column(Integer, default=0)

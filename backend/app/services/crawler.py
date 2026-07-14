@@ -316,7 +316,8 @@ class CrawlerService:
             tasks.append(task)
 
         while tasks:
-            done, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            tasks = list(pending)
             for task in done:
                 result = task.result()
                 if result:
@@ -424,10 +425,16 @@ class CrawlerService:
         for tag in soup.find_all(True):
             if tag.name in ("nav", "footer", "header", "aside"):
                 tag.decompose()
-            if tag.get("class") and any(c in ["sidebar", "menu", "navbar", "footer", "header", "advertisement", "ad", "social", "comments", "comment", "share", "hidden", "modal"] for c in tag.get("class", [])):
-                tag.decompose()
-            if tag.get("id") and any(c in ["sidebar", "menu", "navbar", "footer", "header", "advertisement", "ad", "social", "comments", "comment", "share", "hidden", "modal"] for c in tag.get("id", [])):
-                tag.decompose()
+            try:
+                if tag.get("class") and any(c in ["sidebar", "menu", "navbar", "footer", "header", "advertisement", "ad", "social", "comments", "comment", "share", "hidden", "modal"] for c in tag.get("class", [])):
+                    tag.decompose()
+            except (AttributeError, TypeError):
+                pass
+            try:
+                if tag.get("id") and any(c in ["sidebar", "menu", "navbar", "footer", "header", "advertisement", "ad", "social", "comments", "comment", "share", "hidden", "modal"] for c in tag.get("id", [])):
+                    tag.decompose()
+            except (AttributeError, TypeError):
+                pass
         title_tag = soup.find("title")
         title = title_tag.get_text(strip=True) if title_tag else ""
         if not title:

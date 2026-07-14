@@ -2,56 +2,79 @@
 
 import { useEffect, useState } from "react";
 
-interface Session {
-  id: number;
-  session_id: string;
-  started_at: string;
-  message_count: number;
+interface UsageData {
+  total_sessions: number;
+  total_messages: number;
+  active_users_today: number;
+  total_sites: number;
+  total_chunks: number;
 }
 
 export default function ChatSessionsPage() {
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [usage, setUsage] = useState<UsageData | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const fetchSessions = async () => {
+    const fetchUsage = async () => {
       const token = localStorage.getItem("access_token");
-      const res = await fetch("/api/v1/analytics/usage", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setSessions([
-          { id: 1, session_id: "session-1", started_at: new Date().toISOString(), message_count: data.total_messages || 0 },
-        ]);
+      if (!token) return;
+      try {
+        const res = await fetch("/api/v1/analytics/usage", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUsage(data);
+        } else if (res.status === 403) {
+          setError("You need admin or owner role to view analytics.");
+        } else {
+          setError("Failed to load analytics data.");
+        }
+      } catch {
+        setError("Failed to connect to server.");
       }
     };
-    fetchSessions();
+    fetchUsage();
   }, []);
 
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Chat Sessions</h1>
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="text-left p-3 text-sm font-medium text-gray-500">Session ID</th>
-              <th className="text-left p-3 text-sm font-medium text-gray-500">Messages</th>
-              <th className="text-left p-3 text-sm font-medium text-gray-500">Started</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sessions.map((s) => (
-              <tr key={s.id} className="border-t hover:bg-gray-50 cursor-pointer" onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}>
-                <td className="p-3 text-sm font-mono">{s.session_id}</td>
-                <td className="p-3 text-sm">{s.message_count}</td>
-                <td className="p-3 text-sm text-gray-500">{new Date(s.started_at).toLocaleString()}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+
+      {error && (
+        <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm mb-6">{error}</div>
+      )}
+
+      {usage && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-2xl font-bold text-primary-600">{usage.total_sessions}</div>
+            <div className="text-xs text-gray-500 mt-1">Total Sessions</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-2xl font-bold text-primary-600">{usage.total_messages}</div>
+            <div className="text-xs text-gray-500 mt-1">Messages</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-2xl font-bold text-primary-600">{usage.active_users_today}</div>
+            <div className="text-xs text-gray-500 mt-1">Active Today</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-2xl font-bold text-primary-600">{usage.total_sites}</div>
+            <div className="text-xs text-gray-500 mt-1">Sites</div>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-2xl font-bold text-primary-600">{usage.total_chunks}</div>
+            <div className="text-xs text-gray-500 mt-1">Indexed Chunks</div>
+          </div>
+        </div>
+      )}
+
+      {!usage && !error && (
+        <div className="bg-white rounded-lg shadow p-6 text-center text-gray-400 text-sm">
+          Loading analytics...
+        </div>
+      )}
     </div>
   );
 }

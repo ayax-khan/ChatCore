@@ -39,6 +39,7 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
+    redirect_slashes=False,
 )
 
 app.state.limiter = limiter
@@ -52,11 +53,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def strip_trailing_slash(request: Request, call_next):
+    path = request.scope["path"]
+    if path != "/" and path.endswith("/"):
+        request.scope["path"] = path.rstrip("/")
+    return await call_next(request)
+
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(sites.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
-app.include_router(ws.router)
+app.include_router(ws.router, prefix="/api")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(feedback.router, prefix="/api/v1")
 app.include_router(billing.router, prefix="/api/v1")
