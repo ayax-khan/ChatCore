@@ -1,16 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+*.egg
+
+# Celery
+celerybeat-schedule
+
+# Node
 node_modules/
 .next/
-__pycache__/
-*.pyc
-.env
-*.egg-info/
-dist/
-build/
-.venv/
-venv/
-*.db
-*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
 .DS_Store
-nltk_data/
-.pytest_cache/
-.pytest_cache/
+Thumbs.db
+
+# Temp scripts
+fix_site.py
+tmp_*.py
+start.bat
+stop.bat
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
